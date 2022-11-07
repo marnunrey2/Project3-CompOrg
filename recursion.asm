@@ -41,14 +41,12 @@ totalStars:  .asciiz "Total Stars: "
 # s0 -> number of lines
 # s1 -> number of stars
 # s2 -> return from drawBottom
-# s3 -> -1 for fixing negative
-# s4 -> control variable for loop (i)
 ###########################
 
 main:
 
     # Prompt number of rows
-    la $a0, numberRows          # Loads message to print
+    la $a0, numberLines         # Loads message to print
     li $v0, 4                   # Prints message
     syscall
 
@@ -63,13 +61,13 @@ main:
     
     # Draw top
     move $a0, $s0               # Load argument with number of lines
-    move $a1, $zero             # Load argument with 0
+    li $a1, 0                   # Load argument with 0
     jal drawTop
     move $s1, $v0               # Save number of stars
 
     # Draw bottom
     move $a0, $s0               # Load argument with number of lines
-    move $a1, $zero             # Load argument with 0
+    li $a1, 0                   # Load argument with 0
     jal drawBottom
     move $s2, $v0               # Save drawBottom
 
@@ -77,7 +75,7 @@ main:
 
     # Print result
     la $a0, totalStars          # Loads message to print
-    li $v0, 0x4                 # Prints message
+    li $v0, 4                   # Prints message
     syscall
 
     # Print numStars
@@ -87,61 +85,117 @@ main:
 
     j exit
 
+###########################
+# Fix negative
+#
+# Register Legend:
+# s0 -> number of lines
+# s3 -> -1 for fixing negative
+###########################
+
 fixNegative:
     li $s3, -1
     mul $s0, $s0, $s3
 
 
-drawTop:
-    # save $s0, $s1
-    addi $sp, $sp, -8
-    sw $s0, 0($sp)
-    sw $s1, 4($sp)
+###########################
+# Draw Top
+#
+# Register Legend:
+# a0 -> arguments for numLines
+# a1 -> arguments for currLine
+# v0 -> syscall numbers
+# s0 -> number of lines
+# s1 -> current line
+# s4 -> control variable for loop (i)
+###########################
 
+drawTop:
     move $s0, $a0               # numLines
     move $s1, $a1               # currLine
 
-    beq $s0, $s1, stopDrawTop
+    beq $s0, $s1, exitDrawTop
 
     li $s4, 0
-    startLoop:
-        bgt $s4, $s1, endLoop       # condition of while
+    startLoopTop:
+        bgt $s4, $s1, endLoopTop    # condition of while
 
         # Print asterisk
         la $a0, asterisk            # Loads message to print
-        li $v0, 0x4                 # Prints message
+        li $v0, 4                   # Prints message
         syscall
 
         # Increment i
         addi $s4, $s4, 1
 
-        j startLoop
+        j startLoopTop
 
-    endLoop:
-        # restore $s0, $s1
-        lw $s0, 0($sp)
-        lw $s1, 4($sp)
-        addi $sp, $sp, 8
+    endLoopTop:
+        # New line
+        la $a0, newline             # Loads message to print
+        li $v0, 4                   # Prints message
+        syscall
 
-        # Draw top
-        move $a0, $s0               # Load argument with numLines
-        addi $a1, $s1, 1            # Load argument with currLine+1
-        jal drawTop
-        move $s1, $v0               # Save number of stars
-
-        add $v0, $s4, $s1
-        j exitDrawTop
-
-    stopDrawTop:
-        li $v0, 0
+        move $a0, $s0               # Load argument with numbLines
+        addi $a1, $s1, 1            # Load argument with currLine + 1
+        j drawTop
 
     exitDrawTop:
         # Return
+        li $v0, 0
         jr $ra
 
 
-drawBottom:
+###########################
+# Draw Top
+#
+# Register Legend:
+# a0 -> arguments for numLines
+# a1 -> arguments for currLine
+# v0 -> syscall numbers
+# s0 -> number of lines
+# s1 -> current line
+# s4 -> control variable for loop (i)
+# s5 -> numLines - currLine
+###########################
 
+drawBottom:
+    move $s0, $a0               # numLines
+    move $s1, $a1               # currLine
+
+    beq $s0, $s1, exitDrawBottom
+
+    li $s4, 0
+    startLoopBottom:
+        sub $s5, $s0, $s1
+        bgt $s4, $s5, endLoopBottom # condition of while
+        beq $s4, $s5, endLoopBottom # condition of while
+
+        # Print asterisk
+        la $a0, asterisk            # Loads message to print
+        li $v0, 4                   # Prints message
+        syscall
+
+        # Increment i
+        addi $s4, $s4, 1
+
+        j startLoopBottom
+
+    endLoopBottom:
+        # New line
+        la $a0, newline             # Loads message to print
+        li $v0, 4                   # Prints message
+        syscall
+
+        move $a0, $s0               # Load argument with numbLines
+        addi $a1, $s1, 1            # Load argument with currLine + 1
+        j drawBottom
+
+    exitDrawBottom:
+        # Return
+        li $v0, 0
+        jr $ra
 
 exit:
-
+    li $v0, 10                   # Exit
+    syscall
