@@ -80,7 +80,7 @@ main:
 
     # Print numStars
     move $a0, $s1               # Move numStars to a0
-    li $v0, 4                   # Prints numStars
+    li $v0, 1                   # Prints numStars
     syscall
 
     j exit
