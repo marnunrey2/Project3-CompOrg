@@ -57,8 +57,12 @@ main:
 
     # Check if negative
     # Have to be fixed, we need a jal
-    blt $s0, $zero, fixNegative
-    
+    bge $s0, $zero, endIf
+    move $a0, $s0 # s0 is argument for fixNegative
+    jal fixNegative
+    move $s0, $v0 # set s0 to return value.
+    endIf:
+
     # Draw top
     move $a0, $s0               # Load argument with number of lines
     li $a1, 0                   # Load argument with 0
@@ -89,47 +93,62 @@ main:
 # Fix negative
 #
 # Register Legend:
-# s0 -> number of lines
-# s3 -> -1 for fixing negative
+# a0 -> number of lines
+# s0 -> -1 for fixing negative
 ###########################
 
 fixNegative:
-    li $s3, -1
-    mul $s0, $s0, $s3
+    addi $sp, -4
+    sw $sp, 0($sp)
+    
+    lw $s0, 0($sp)
+    mul $v0, $s0, $s3
+    jr $ra
+
+    lw $sp, 0($sp)
+    addi $sp, 4
 
 
 ###########################
-# Draw Top
+# Draw Bottom
 #
 # Register Legend:
-# a0 -> arguments for numLines
-# a1 -> arguments for currLine
+# a0 -> argument for numLines (later overridden by syscall arguments)
+# a1 -> argument for currLine (later overridden with a1+1)
+# s0 -> number of lines (saved from a0)
+# s1 -> current line (saved from a1)
+# s2 -> control variable for loop (i)
 # v0 -> syscall numbers
-# s0 -> number of lines
-# s1 -> current line
-# s4 -> control variable for loop (i)
 ###########################
 
 drawTop:
-    move $s0, $a0               # numLines
-    move $s1, $a1               # currLine
+    addi $sp, -16
+    sw $s0, 0($sp)
+    sw $s1, 4($sp)
+    sw $s2, 8($sp)
+    # saving a0, a1 to s0, s1.
+    # a0 especially conflicts with syscalls, so instead of
+    # saving/restoring from memory, it makes sense to just move it to an s register.
+    move $s0, $a0
+    move $s1, $a1
 
-    beq $s0, $s1, exitDrawTop
-
-    li $s4, 0
-    startLoopTop:
-        bgt $s4, $s1, endLoopTop    # condition of while
-
+    beq $s0, $s1, baseCaseTop
+    li $s2, 0 # control variable i = 0
+    loopTop:
+        bgt $s2, $s1, endLoopTop
+        
         # Print asterisk
         la $a0, asterisk            # Loads message to print
         li $v0, 4                   # Prints message
         syscall
 
         # Increment i
-        addi $s4, $s4, 1
+        addi $s2, $s2, 1
 
-        j startLoopTop
-
+        j loopTop
+    baseCaseTop:
+        li $v0, 0
+        j restoreEndTop
     endLoopTop:
         # New line
         la $a0, newline             # Loads message to print
@@ -138,49 +157,68 @@ drawTop:
 
         move $a0, $s0               # Load argument with numbLines
         addi $a1, $s1, 1            # Load argument with currLine + 1
-        j drawTop
 
-    exitDrawTop:
-        # Return
-        li $v0, 0
+        # preserve $ra, call drawTop recursively.
+        addi $sp, -4
+        sw $ra, 0($sp)
+        jal drawTop
+        lw $ra, 0($sp)
+        addi $sp, 4
+        # return value ($v0) is i ($s2) plus return from call ($v0)
+        add $v0, $s2, $v0
+        # fall through to restoreEndTop
+    restoreEndTop:
+        lw $s2, 8($sp)
+        lw $s1, 4($sp)
+        lw $s0, 0($sp)
+        addi $sp, 16
         jr $ra
 
-
 ###########################
-# Draw Top
+# Draw Bottom
 #
+# The difference between draw bottom and draw top is the condition
+# for ending branching on the loop. We add a register s3 which s2 is compared to.
 # Register Legend:
-# a0 -> arguments for numLines
-# a1 -> arguments for currLine
+# a0 -> argument for numLines (later overridden by syscall arguments)
+# a1 -> argument for currLine (later overridden with a1+1)
+# s0 -> number of lines (saved from a0)
+# s1 -> current line (saved from a1)
+# s2 -> control variable for loop (i)
+# s3 -> numLines - currLine
 # v0 -> syscall numbers
-# s0 -> number of lines
-# s1 -> current line
-# s4 -> control variable for loop (i)
-# s5 -> numLines - currLine
 ###########################
 
 drawBottom:
-    move $s0, $a0               # numLines
-    move $s1, $a1               # currLine
+    addi $sp, -16
+    sw $s0, 0($sp)
+    sw $s1, 4($sp)
+    sw $s2, 8($sp)
+    sw $s3, 12($sp)
+    # saving a0, a1 to s0, s1.
+    # a0 especially conflicts with syscalls, so instead of
+    # saving/restoring from memory, it makes sense to just move it to an s register.
+    move $s0, $a0
+    move $s1, $a1
 
-    beq $s0, $s1, exitDrawBottom
-
-    li $s4, 0
-    startLoopBottom:
-        sub $s5, $s0, $s1
-        bgt $s4, $s5, endLoopBottom # condition of while
-        beq $s4, $s5, endLoopBottom # condition of while
-
+    beq $s0, $s1, baseCaseBottom
+    li $s2, 0 # control variable i = 0
+    sub $s3, $s0, $s1 # s3 = numLines - currLine
+    loopBottom:
+        bge $s2, $s3, endLoopBottom
+        
         # Print asterisk
         la $a0, asterisk            # Loads message to print
         li $v0, 4                   # Prints message
         syscall
 
         # Increment i
-        addi $s4, $s4, 1
+        addi $s2, $s2, 1
 
-        j startLoopBottom
-
+        j loopBottom
+    baseCaseBottom:
+        li $v0, 0
+        j restoreEndBottom
     endLoopBottom:
         # New line
         la $a0, newline             # Loads message to print
@@ -189,11 +227,22 @@ drawBottom:
 
         move $a0, $s0               # Load argument with numbLines
         addi $a1, $s1, 1            # Load argument with currLine + 1
-        j drawBottom
 
-    exitDrawBottom:
-        # Return
-        li $v0, 0
+        # preserve $ra, call drawBottom recursively.
+        addi $sp, -4
+        sw $ra, 0($sp)
+        jal drawBottom
+        lw $ra, 0($sp)
+        addi $sp, 4
+        # return value ($v0) is i ($s2) plus return from call ($v0)
+        add $v0, $s2, $v0
+        # fall through to restoreEndBottom
+    restoreEndBottom:
+        lw $s3, 12($sp)
+        lw $s2, 8($sp)
+        lw $s1, 4($sp)
+        lw $s0, 0($sp)
+        addi $sp, 16
         jr $ra
 
 exit:
