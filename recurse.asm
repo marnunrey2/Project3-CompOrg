@@ -99,14 +99,14 @@ main:
 
 fixNegative:
     addi $sp, -4
-    sw $sp, 0($sp)
+    sw $s0, 0($sp)
     
-    lw $s0, 0($sp)
-    mul $v0, $s0, $s3
-    jr $ra
+    li $s0, -1
+    mul $v0, $s0, $a0
 
-    lw $sp, 0($sp)
+    lw $s0, 0($sp)
     addi $sp, 4
+    jr $ra
 
 
 ###########################
