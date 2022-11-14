@@ -4,7 +4,12 @@
 #  
 # Date: 11/05/2022
 # 
-# 
+# This program draws a number of stars in increasing order.
+# The user is asked how many lines he/she wants and the program prints a number 
+# of stars in increasing order until it reaches the number of lines introduced 
+# and then, it prints the stars in decreasing order until it reaches 0.
+# Finally, the program prints the number of stars that has been printed along 
+# the program
 # 
 ################################################ 
 
@@ -13,9 +18,6 @@
 
 # Newline
 newline:   .asciiz "\n"
-
-# space character
-space:     .asciiz " "
 
 # *
 asterisk:  .asciiz "*"
@@ -56,13 +58,12 @@ main:
     move $s0, $v0               # Save number of lines
 
     # Check if negative
-    # Have to be fixed, we need a jal
     bge $s0, $zero, endIf
-    move $a0, $s0 # s0 is argument for fixNegative
+    move $a0, $s0               # s0 is argument for fixNegative
     jal fixNegative
-    move $s0, $v0 # set s0 to return value.
+    move $s0, $v0               # set s0 to return value.
+    
     endIf:
-
     # Draw top
     move $a0, $s0               # Load argument with number of lines
     li $a1, 0                   # Load argument with 0
@@ -115,10 +116,10 @@ fixNegative:
 # Register Legend:
 # a0 -> argument for numLines (later overridden by syscall arguments)
 # a1 -> argument for currLine (later overridden with a1+1)
+# v0 -> syscall numbers
 # s0 -> number of lines (saved from a0)
 # s1 -> current line (saved from a1)
 # s2 -> control variable for loop (i)
-# v0 -> syscall numbers
 ###########################
 
 drawTop:
@@ -126,9 +127,10 @@ drawTop:
     sw $s0, 0($sp)
     sw $s1, 4($sp)
     sw $s2, 8($sp)
+    
     # saving a0, a1 to s0, s1.
-    # a0 especially conflicts with syscalls, so instead of
-    # saving/restoring from memory, it makes sense to just move it to an s register.
+    # a0 especially conflicts with syscalls, so instead of saving/restoring from 
+    # memory, it makes sense to just move it to an s register.
     move $s0, $a0
     move $s1, $a1
 
@@ -146,9 +148,11 @@ drawTop:
         addi $s2, $s2, 1
 
         j loopTop
+
     baseCaseTop:
         li $v0, 0
         j restoreEndTop
+
     endLoopTop:
         # New line
         la $a0, newline             # Loads message to print
@@ -164,6 +168,7 @@ drawTop:
         jal drawTop
         lw $ra, 0($sp)
         addi $sp, 4
+
         # return value ($v0) is i ($s2) plus return from call ($v0)
         add $v0, $s2, $v0
         # fall through to restoreEndTop
@@ -172,21 +177,23 @@ drawTop:
         lw $s1, 4($sp)
         lw $s0, 0($sp)
         addi $sp, 16
+
         jr $ra
 
 ###########################
 # Draw Bottom
 #
-# The difference between draw bottom and draw top is the condition
-# for ending branching on the loop. We add a register s3 which s2 is compared to.
+# The difference between draw bottom and draw top is the condition for ending 
+# branching on the loop. We add a register s3 which s2 is compared to.
+# 
 # Register Legend:
 # a0 -> argument for numLines (later overridden by syscall arguments)
 # a1 -> argument for currLine (later overridden with a1+1)
+# v0 -> syscall numbers
 # s0 -> number of lines (saved from a0)
 # s1 -> current line (saved from a1)
 # s2 -> control variable for loop (i)
 # s3 -> numLines - currLine
-# v0 -> syscall numbers
 ###########################
 
 drawBottom:
@@ -195,6 +202,7 @@ drawBottom:
     sw $s1, 4($sp)
     sw $s2, 8($sp)
     sw $s3, 12($sp)
+
     # saving a0, a1 to s0, s1.
     # a0 especially conflicts with syscalls, so instead of
     # saving/restoring from memory, it makes sense to just move it to an s register.
@@ -202,8 +210,8 @@ drawBottom:
     move $s1, $a1
 
     beq $s0, $s1, baseCaseBottom
-    li $s2, 0 # control variable i = 0
-    sub $s3, $s0, $s1 # s3 = numLines - currLine
+    li $s2, 0                           # control variable i = 0
+    sub $s3, $s0, $s1                   # s3 = numLines - currLine
     loopBottom:
         bge $s2, $s3, endLoopBottom
         
@@ -216,9 +224,11 @@ drawBottom:
         addi $s2, $s2, 1
 
         j loopBottom
+
     baseCaseBottom:
         li $v0, 0
         j restoreEndBottom
+
     endLoopBottom:
         # New line
         la $a0, newline             # Loads message to print
@@ -234,6 +244,7 @@ drawBottom:
         jal drawBottom
         lw $ra, 0($sp)
         addi $sp, 4
+
         # return value ($v0) is i ($s2) plus return from call ($v0)
         add $v0, $s2, $v0
         # fall through to restoreEndBottom
@@ -243,6 +254,7 @@ drawBottom:
         lw $s1, 4($sp)
         lw $s0, 0($sp)
         addi $sp, 16
+
         jr $ra
 
 exit:
